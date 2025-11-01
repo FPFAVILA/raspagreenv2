@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, AlertCircle, Shield, User, CreditCard, ChevronRight } from 'lucide-react';
 import { KYCStatus } from '../types';
+import { KYCDepositModal } from './KYCDepositModal';
 
 interface KYCVerificationModalProps {
   isOpen: boolean;
   onClose: () => void;
   kycStatus: KYCStatus;
   onUpdateKYC: (status: KYCStatus) => void;
-  onOpenDepositModal: () => void;
 }
 
 export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
   isOpen,
   onClose,
   kycStatus,
-  onUpdateKYC,
-  onOpenDepositModal
+  onUpdateKYC
 }) => {
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [formData, setFormData] = useState({
@@ -24,6 +23,8 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
     birthDate: kycStatus.birthDate || ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositAttempts, setDepositAttempts] = useState(0);
 
   useEffect(() => {
     if (isOpen) {
@@ -116,11 +117,41 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
   };
 
   const handleOpenDeposit = () => {
-    onClose();
-    onOpenDepositModal();
+    setShowDepositModal(true);
+  };
+
+  const handleDepositComplete = () => {
+    setShowDepositModal(false);
+    const updatedKYC: KYCStatus = {
+      ...kycStatus,
+      depositVerified: true,
+      isVerified: true
+    };
+    onUpdateKYC(updatedKYC);
+  };
+
+  const handleDepositError = () => {
+    setShowDepositModal(false);
+    setDepositAttempts(prev => prev + 1);
+
+    setTimeout(() => {
+      setCurrentStep(1);
+      setFormData({
+        cpf: '',
+        fullName: '',
+        birthDate: ''
+      });
+      const resetKYC: KYCStatus = {
+        isVerified: false,
+        identityVerified: false,
+        depositVerified: false
+      };
+      onUpdateKYC(resetKYC);
+    }, 500);
   };
 
   return (
+    <>
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
       <div className="bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md border border-gray-800 animate-slideUp overflow-hidden">
         <div className="bg-gradient-to-r from-accent to-accent-hover p-6 relative overflow-hidden">
@@ -348,5 +379,14 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
         </div>
       </div>
     </div>
+
+    <KYCDepositModal
+      isOpen={showDepositModal}
+      onClose={() => setShowDepositModal(false)}
+      onVerificationComplete={handleDepositComplete}
+      onVerificationError={handleDepositError}
+      isSecondAttempt={depositAttempts >= 1}
+    />
+    </>
   );
 };
